@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/cresta/atlantis-drift-detection/internal/atlantis"
 	"github.com/cresta/atlantis-drift-detection/internal/atlantisgithub"
 	"github.com/cresta/atlantis-drift-detection/internal/notification"
@@ -13,13 +16,12 @@ import (
 	"github.com/cresta/gogithub"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"os"
-	"time"
 )
 
 type Drifter struct {
 	Logger             *zap.Logger
 	Repo               string
+	AtlantisConfigPath string
 	Cloner             *gogit.Cloner
 	GithubClient       gogithub.GitHub
 	Terraform          *terraform.Client
@@ -43,7 +45,7 @@ func (d *Drifter) Drift(ctx context.Context) error {
 			d.Logger.Warn("failed to cleanup repo", zap.Error(err))
 		}
 	}()
-	cfg, err := atlantis.ParseRepoConfigFromDir(repo.Location())
+	cfg, err := atlantis.ParseRepoConfigFromDir(repo.Location(), d.AtlantisConfigPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse repo config: %w", err)
 	}
