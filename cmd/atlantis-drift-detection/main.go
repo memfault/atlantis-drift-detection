@@ -17,15 +17,16 @@ import (
 	"github.com/joho/godotenv"
 
 	// Empty import allows pinning to version atlantis uses
+	"github.com/joeshaw/envdecode"
 	_ "github.com/nlopes/slack"
 	"go.uber.org/zap"
 )
-import "github.com/joeshaw/envdecode"
 
 type config struct {
 	Repo               string        `env:"REPO,required"`
 	AtlantisHostname   string        `env:"ATLANTIS_HOST,required"`
 	AtlantisToken      string        `env:"ATLANTIS_TOKEN,required"`
+	AtlantisConfigPath string        `env:"ATLANTIS_CONFIG_PATH,default=atlantis.yaml"`
 	DirectoryWhitelist []string      `env:"DIRECTORY_WHITELIST"`
 	SlackWebhookURL    string        `env:"SLACK_WEBHOOK_URL"`
 	SkipWorkspaceCheck bool          `env:"SKIP_WORKSPACE_CHECK"`
@@ -130,6 +131,7 @@ func main() {
 		DirectoryWhitelist: cfg.DirectoryWhitelist,
 		Logger:             logger.With(zap.String("drifter", "true")),
 		Repo:               cfg.Repo,
+		AtlantisConfigPath: cfg.AtlantisConfigPath,
 		AtlantisClient: &atlantis.Client{
 			AtlantisHostname: cfg.AtlantisHostname,
 			Token:            cfg.AtlantisToken,
