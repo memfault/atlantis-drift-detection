@@ -63,7 +63,17 @@ func (s *SlackWebhook) MissingWorkspaceInRemote(ctx context.Context, dir string,
 }
 
 func (s *SlackWebhook) PlanDrift(ctx context.Context, dir string, workspace string) error {
-	return s.sendSlackMessage(ctx, fmt.Sprintf("Plan Drift workspace in remote\nDirectory: %s\nWorkspace: %s", dir, workspace))
+	// Comment out existing implementation
+	// return s.sendSlackMessage(ctx, fmt.Sprintf("Plan Drift workspace in remote\nDirectory: %s\nWorkspace: %s", dir, workspace))
+
+	// Use new memfault-specific formatter
+	formatter := NewMemfaultSlackFormatter()
+	message, err := formatter.FormatPlanDriftMessage(dir)
+	if err != nil {
+		fmt.Printf("failed to format plan drift message: %v\n", err)
+		return s.sendSlackMessage(ctx, fmt.Sprintf("Terraform Plan Drift\nDirectory: %s\nWorkspace: %s", dir, workspace))
+	}
+	return s.sendSlackMessage(ctx, message)
 }
 
 var _ Notification = &SlackWebhook{}
