@@ -78,7 +78,18 @@ var _ gogit.Logger = (*zapGogitLogger)(nil)
 func main() {
 	ctx := context.Background()
 	zapCfg := zap.NewProductionConfig()
-	zapCfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+
+	// Respect LOG_LEVEL environment variable, default to info level
+	if logLevel := os.Getenv("LOG_LEVEL"); logLevel != "" {
+		var level zap.AtomicLevel
+		if err := level.UnmarshalText([]byte(logLevel)); err != nil {
+			panic(fmt.Errorf("invalid LOG_LEVEL: %s", logLevel))
+		}
+		zapCfg.Level = level
+	} else {
+		zapCfg.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+	}
+
 	logger, err := zapCfg.Build(zap.AddCaller())
 	if err != nil {
 		panic(err)
@@ -136,6 +147,7 @@ func main() {
 			AtlantisHostname: cfg.AtlantisHostname,
 			Token:            cfg.AtlantisToken,
 			HTTPClient:       http.DefaultClient,
+			Logger:           logger.With(zap.String("atlantis", "true")),
 		},
 		ParallelRuns:       cfg.ParallelRuns,
 		ResultCache:        cache,
