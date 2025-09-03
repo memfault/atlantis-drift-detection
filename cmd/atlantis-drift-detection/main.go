@@ -136,6 +136,7 @@ func main() {
 			AtlantisHostname: cfg.AtlantisHostname,
 			Token:            cfg.AtlantisToken,
 			HTTPClient:       http.DefaultClient,
+			Logger:           logger.With(zap.String("atlantis", "true")),
 		},
 		ParallelRuns:       cfg.ParallelRuns,
 		ResultCache:        cache,

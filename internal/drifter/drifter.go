@@ -35,27 +35,34 @@ type Drifter struct {
 }
 
 func (d *Drifter) Drift(ctx context.Context) error {
+	d.Logger.Info("Checking out repo", zap.String("repo", d.Repo))
 	repo, err := atlantisgithub.CheckOutTerraformRepo(ctx, d.GithubClient, d.Cloner, d.Repo)
 	if err != nil {
 		return fmt.Errorf("failed to checkout repo %s: %w", d.Repo, err)
 	}
+	d.Logger.Info("Repo checked out", zap.String("repo", d.Repo))
 	d.Terraform.Directory = repo.Location()
 	defer func() {
 		if err := os.RemoveAll(repo.Location()); err != nil {
 			d.Logger.Warn("failed to cleanup repo", zap.Error(err))
 		}
 	}()
+	d.Logger.Debug("Parsing repo config", zap.String("repo", d.Repo))
 	cfg, err := atlantis.ParseRepoConfigFromDir(repo.Location(), d.AtlantisConfigPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse repo config: %w", err)
 	}
 	workspaces := atlantis.ConfigToWorkspaces(cfg)
+	d.Logger.Info("Found workspaces", zap.String("repo", d.Repo), zap.Any("workspaces", workspaces))
+	d.Logger.Debug("Finding drifted workspaces", zap.String("repo", d.Repo))
 	if err := d.FindDriftedWorkspaces(ctx, workspaces); err != nil {
 		return fmt.Errorf("failed to find drifted workspaces: %w", err)
 	}
+	d.Logger.Debug("Finding extra workspaces", zap.String("repo", d.Repo))
 	if err := d.FindExtraWorkspaces(ctx, workspaces); err != nil {
 		return fmt.Errorf("failed to find extra workspaces: %w", err)
 	}
+	d.Logger.Info("Drift check complete", zap.String("repo", d.Repo))
 	return nil
 }
 

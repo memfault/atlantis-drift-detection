@@ -11,12 +11,14 @@ import (
 
 	"github.com/runatlantis/atlantis/server/controllers"
 	"github.com/runatlantis/atlantis/server/events/command"
+	"go.uber.org/zap"
 )
 
 type Client struct {
 	AtlantisHostname string
 	Token            string
 	HTTPClient       *http.Client
+	Logger           *zap.Logger
 }
 
 type PlanSummaryRequest struct {
@@ -111,6 +113,16 @@ func (c *Client) PlanSummary(ctx context.Context, req *PlanSummaryRequest) (*Pla
 	}
 	if err := resp.Body.Close(); err != nil {
 		return nil, fmt.Errorf("unable to close response body: %w", err)
+	}
+
+	// Log the full response for debugging
+	if c.Logger != nil {
+		c.Logger.Debug("Atlantis API response",
+			zap.String("url", destination),
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("status", resp.Status),
+			zap.String("response_body", fullBody.String()),
+		)
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		var errResp errorResponse
