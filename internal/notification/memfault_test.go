@@ -33,7 +33,7 @@ func TestMemfaultSlackFormatter_FormatPlanDriftMessage(t *testing.T) {
 		{
 			name:        "simple path structure",
 			dir:         "infra/terraform/simple/project",
-			expected:    "Terraform drift detected in `infra/terraform/simple/project`.\nFix locally with this command:\n\n```\naws-vault exec memfault-eu -- inv terraform.apply -p project\n```",
+			expected:    "Terraform drift detected in `infra/terraform/simple/project`.\nFix locally with this command:\n\n```\naws-vault exec memfault-simple -- inv terraform.apply -p project\n```",
 			expectError: false,
 		},
 		{

@@ -1,10 +1,11 @@
 package atlantis
 
 import (
-	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 const exampleAtlantis = `version: 3
@@ -63,7 +64,7 @@ func TestParseRepoConfigFromDir(t *testing.T) {
 	}(dirName)
 	fp := filepath.Join(dirName, "atlantis.yaml")
 	require.NoError(t, os.WriteFile(fp, []byte(exampleAtlantis), 0644))
-	cfg, err := ParseRepoConfigFromDir(dirName)
+	cfg, err := ParseRepoConfigFromDir(dirName, "atlantis.yaml")
 	require.NoError(t, err)
 	require.Equal(t, 3, cfg.Version)
 	require.Equal(t, 3, len(cfg.Projects))
