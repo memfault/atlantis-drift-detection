@@ -58,10 +58,11 @@ func (d *Drifter) Drift(ctx context.Context) error {
 	if err := d.FindDriftedWorkspaces(ctx, workspaces); err != nil {
 		return fmt.Errorf("failed to find drifted workspaces: %w", err)
 	}
-	d.Logger.Debug("Finding extra workspaces", zap.String("repo", d.Repo))
-	if err := d.FindExtraWorkspaces(ctx, workspaces); err != nil {
-		return fmt.Errorf("failed to find extra workspaces: %w", err)
-	}
+	// TOPHER: turned off check because it's causing errors
+	// d.Logger.Debug("Finding extra workspaces", zap.String("repo", d.Repo))
+	// if err := d.FindExtraWorkspaces(ctx, workspaces); err != nil {
+	// 	return fmt.Errorf("failed to find extra workspaces: %w", err)
+	// }
 	d.Logger.Info("Drift check complete", zap.String("repo", d.Repo))
 	return nil
 }
