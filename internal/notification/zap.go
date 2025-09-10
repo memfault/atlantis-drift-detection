@@ -15,8 +15,15 @@ func (I *Zap) TemporaryError(_ context.Context, dir string, workspace string, er
 	return nil
 }
 
-func (I *Zap) PlanDrift(_ context.Context, dir string, workspace string) error {
-	I.Logger.Info("Plan has drifted", zap.String("dir", dir), zap.String("workspace", workspace))
+func (I *Zap) PlanDrift(_ context.Context, dir string, workspace string, terraformOutput ...string) error {
+	if len(terraformOutput) > 0 && terraformOutput[0] != "" {
+		I.Logger.Info("Plan has drifted",
+			zap.String("dir", dir),
+			zap.String("workspace", workspace),
+			zap.String("terraform_output", terraformOutput[0]))
+	} else {
+		I.Logger.Info("Plan has drifted", zap.String("dir", dir), zap.String("workspace", workspace))
+	}
 	return nil
 }
 

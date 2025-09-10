@@ -62,18 +62,30 @@ func (s *SlackWebhook) MissingWorkspaceInRemote(ctx context.Context, dir string,
 	return s.sendSlackMessage(ctx, fmt.Sprintf("Missing workspace in remote\nDirectory: %s\nWorkspace: %s", dir, workspace))
 }
 
-func (s *SlackWebhook) PlanDrift(ctx context.Context, dir string, workspace string) error {
+func (s *SlackWebhook) PlanDrift(ctx context.Context, dir string, workspace string, terraformOutput ...string) error {
 	// Comment out existing implementation
 	// return s.sendSlackMessage(ctx, fmt.Sprintf("Plan Drift workspace in remote\nDirectory: %s\nWorkspace: %s", dir, workspace))
 
-	// Use new memfault-specific formatter
 	formatter := NewMemfaultSlackFormatter()
-	message, err := formatter.FormatPlanDriftMessage(dir)
-	if err != nil {
-		fmt.Printf("failed to format plan drift message: %v\n", err)
-		return s.sendSlackMessage(ctx, fmt.Sprintf("Terraform Plan Drift\nDirectory: %s\nWorkspace: %s", dir, workspace))
+
+	// Check if terraform output was provided
+	if len(terraformOutput) > 0 && terraformOutput[0] != "" {
+		// Use the enhanced formatter with drift details
+		message, err := formatter.FormatPlanDriftMessageWithDetails(dir, terraformOutput[0])
+		if err != nil {
+			fmt.Printf("failed to format plan drift message with details: %v\n", err)
+			return s.sendSlackMessage(ctx, fmt.Sprintf("Terraform Plan Drift\nDirectory: %s\nWorkspace: %s", dir, workspace))
+		}
+		return s.sendSlackMessage(ctx, message)
+	} else {
+		// Use the basic formatter without drift details
+		message, err := formatter.FormatPlanDriftMessage(dir)
+		if err != nil {
+			fmt.Printf("failed to format plan drift message: %v\n", err)
+			return s.sendSlackMessage(ctx, fmt.Sprintf("Terraform Plan Drift\nDirectory: %s\nWorkspace: %s", dir, workspace))
+		}
+		return s.sendSlackMessage(ctx, message)
 	}
-	return s.sendSlackMessage(ctx, message)
 }
 
 var _ Notification = &SlackWebhook{}

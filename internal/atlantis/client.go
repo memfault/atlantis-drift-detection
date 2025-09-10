@@ -34,8 +34,9 @@ type PlanResult struct {
 }
 
 type PlanSummary struct {
-	HasLock bool
-	Summary string
+	HasLock         bool
+	Summary         string
+	TerraformOutput string
 }
 
 func (p *PlanResult) HasChanges() bool {
@@ -162,7 +163,11 @@ func (c *Client) PlanSummary(ctx context.Context, req *PlanSummaryRequest) (*Pla
 		}
 		if result.PlanSuccess != nil {
 			summary := result.PlanSuccess.Summary()
-			ret.Summaries = append(ret.Summaries, PlanSummary{Summary: summary})
+			terraformOutput := result.PlanSuccess.TerraformOutput
+			ret.Summaries = append(ret.Summaries, PlanSummary{
+				Summary:         summary,
+				TerraformOutput: terraformOutput,
+			})
 			continue
 		}
 		return nil, fmt.Errorf("project result unknown failure: %s", result.Failure)
