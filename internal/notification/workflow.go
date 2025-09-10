@@ -44,7 +44,7 @@ func (w *Workflow) MissingWorkspaceInRemote(_ context.Context, _ string, _ strin
 	return nil
 }
 
-func (w *Workflow) PlanDrift(ctx context.Context, dir string, _ string) error {
+func (w *Workflow) PlanDrift(ctx context.Context, dir string, _ string, _ ...string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.directoriesDone == nil {

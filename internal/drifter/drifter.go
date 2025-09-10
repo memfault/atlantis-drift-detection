@@ -179,7 +179,19 @@ func (d *Drifter) FindDriftedWorkspaces(ctx context.Context, ws atlantis.Directo
 					continue
 				}
 				if pr.HasChanges() {
-					if err := d.Notification.PlanDrift(ctx, dir, workspace); err != nil {
+					// Get the Terraform output from the first summary that has changes
+					// This allows us to include the drift details in the notification
+					var terraformOutput string
+					for _, summary := range pr.Summaries {
+						if !summary.HasLock && summary.TerraformOutput != "" {
+							terraformOutput = summary.TerraformOutput
+							break
+						}
+					}
+
+					// Pass the terraform output as a variadic parameter
+					// If empty, the notification implementations will handle it gracefully
+					if err := d.Notification.PlanDrift(ctx, dir, workspace, terraformOutput); err != nil {
 						return fmt.Errorf("failed to notify of plan drift in %s: %w", dir, err)
 					}
 				}

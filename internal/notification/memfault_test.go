@@ -173,3 +173,168 @@ func TestMemfaultSlackFormatter_MessageStructure(t *testing.T) {
 		t.Error("Message should contain the directory in backticks")
 	}
 }
+
+func TestMemfaultSlackFormatter_FormatPlanDriftMessageWithDetails(t *testing.T) {
+	tests := []struct {
+		name             string
+		dir              string
+		terraformOutput  string
+		expectedContains []string
+		expectError      bool
+	}{
+		{
+			name:            "eu environment with drift details",
+			dir:             "infra/terraform/database/prod/eu-central-1/eu/lavinmq",
+			terraformOutput: "Terraform will perform the following actions:\n\n  # aws_instance.example will be updated in-place\n  ~ resource \"aws_instance\" \"example\" {\n        id = \"i-1234567890abcdef0\"\n      ~ instance_type = \"t2.micro\" -> \"t2.small\"\n        # (10 unchanged attributes hidden)\n    }\n\nPlan: 0 to add, 1 to change, 0 to destroy.",
+			expectedContains: []string{
+				"Terraform drift detected in `infra/terraform/database/prod/eu-central-1/eu/lavinmq`",
+				"aws-vault exec memfault-eu -- inv terraform.apply -p lavinmq",
+				"Drift Details:",
+				"aws_instance.example will be updated in-place",
+				"instance_type = \"t2.micro\" -> \"t2.small\"",
+			},
+			expectError: false,
+		},
+		{
+			name:            "staging environment with no drift details",
+			dir:             "infra/terraform/database/staging/myproject",
+			terraformOutput: "No changes. Your infrastructure matches the configuration.",
+			expectedContains: []string{
+				"Terraform drift detected in `infra/terraform/database/staging/myproject`",
+				"aws-vault exec memfault-staging -- inv terraform.apply -p myproject",
+			},
+			expectError: false,
+		},
+		{
+			name:            "production environment with complex drift",
+			dir:             "terraform/infra/production/testapp",
+			terraformOutput: "Terraform will perform the following actions:\n\n  # module.redis.aws_cloudwatch_metric_alarm.high-cpu[0] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n        id = \"ProductionRedisPrimary-001 High CPU Alarm\"\n      ~ threshold = 80 -> 90\n        # (21 unchanged attributes hidden)\n    }\n\n  # module.redis.aws_cloudwatch_metric_alarm.high-cpu[1] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n        id = \"ProductionRedisPrimary-002 High CPU Alarm\"\n      ~ threshold = 80 -> 90\n        # (21 unchanged attributes hidden)\n    }\n\nPlan: 0 to add, 2 to change, 0 to destroy.",
+			expectedContains: []string{
+				"Terraform drift detected in `terraform/infra/production/testapp`",
+				"aws-vault exec memfault-prod -- inv terraform.apply -p testapp",
+				"Drift Details:",
+				"module.redis.aws_cloudwatch_metric_alarm.high-cpu[0] will be updated in-place",
+				"threshold = 80 -> 90",
+			},
+			expectError: false,
+		},
+		{
+			name:             "invalid path - only one component",
+			dir:              "lavinmq",
+			terraformOutput:  "Some output",
+			expectedContains: []string{},
+			expectError:      true,
+		},
+	}
+
+	formatter := NewMemfaultSlackFormatter()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := formatter.FormatPlanDriftMessageWithDetails(tt.dir, tt.terraformOutput)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				for _, expected := range tt.expectedContains {
+					if !strings.Contains(result, expected) {
+						t.Errorf("FormatPlanDriftMessageWithDetails() should contain '%s', but got: %s", expected, result)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestMemfaultSlackFormatter_ExtractDriftDetails(t *testing.T) {
+	tests := []struct {
+		name                string
+		terraformOutput     string
+		expectedContains    []string
+		expectedNotContains []string
+	}{
+		{
+			name:            "standard terraform plan output",
+			terraformOutput: "Terraform will perform the following actions:\n\n  # aws_instance.example will be updated in-place\n  ~ resource \"aws_instance\" \"example\" {\n        id = \"i-1234567890abcdef0\"\n      ~ instance_type = \"t2.micro\" -> \"t2.small\"\n        # (10 unchanged attributes hidden)\n    }\n\nPlan: 0 to add, 1 to change, 0 to destroy.",
+			expectedContains: []string{
+				"aws_instance.example will be updated in-place",
+				"instance_type = \"t2.micro\" -> \"t2.small\"",
+			},
+			expectedNotContains: []string{
+				"Terraform will perform the following actions:",
+			},
+		},
+		{
+			name:                "no changes output",
+			terraformOutput:     "No changes. Your infrastructure matches the configuration.",
+			expectedContains:    []string{},
+			expectedNotContains: []string{},
+		},
+		{
+			name:            "complex multi-resource changes",
+			terraformOutput: "Terraform will perform the following actions:\n\n  # module.redis.aws_cloudwatch_metric_alarm.high-cpu[0] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n        id = \"ProductionRedisPrimary-001 High CPU Alarm\"\n      ~ threshold = 80 -> 90\n        # (21 unchanged attributes hidden)\n    }\n\n  # module.redis.aws_cloudwatch_metric_alarm.high-cpu[1] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n        id = \"ProductionRedisPrimary-002 High CPU Alarm\"\n      ~ threshold = 80 -> 90\n        # (21 unchanged attributes hidden)\n    }\n\nPlan: 0 to add, 2 to change, 0 to destroy.",
+			expectedContains: []string{
+				"module.redis.aws_cloudwatch_metric_alarm.high-cpu[0] will be updated in-place",
+				"module.redis.aws_cloudwatch_metric_alarm.high-cpu[1] will be updated in-place",
+				"threshold = 80 -> 90",
+			},
+			expectedNotContains: []string{
+				"Terraform will perform the following actions:",
+			},
+		},
+		{
+			name:                "output without start marker",
+			terraformOutput:     "Some other terraform output without the expected marker",
+			expectedContains:    []string{},
+			expectedNotContains: []string{},
+		},
+		{
+			name:            "output without end marker",
+			terraformOutput: "Terraform will perform the following actions:\n\n  # aws_instance.example will be updated in-place\n  ~ resource \"aws_instance\" \"example\" {\n        id = \"i-1234567890abcdef0\"\n      ~ instance_type = \"t2.micro\" -> \"t2.small\"\n        # (10 unchanged attributes hidden)\n    }",
+			expectedContains: []string{
+				"aws_instance.example will be updated in-place",
+				"instance_type = \"t2.micro\" -> \"t2.small\"",
+			},
+			expectedNotContains: []string{
+				"Terraform will perform the following actions:",
+			},
+		},
+		{
+			name:            "large terraform output with truncation",
+			terraformOutput: "Terraform will perform the following actions:\n\n  # module.mflt-chunks-ingress-reassembly-redis.aws_cloudwatch_metric_alarm.high-cpu[0] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n        id                                    = \"ProductionChunksIngressReassemblyRedis-001 High CPU Alarm\"\n        tags                                  = {}\n      ~ threshold                             = 80 -> 90\n        # (21 unchanged attributes hidden)\n    }\n\n  # module.mflt-chunks-ingress-reassembly-redis.aws_cloudwatch_metric_alarm.high-cpu[1] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n        id                                    = \"ProductionChunksIngressReassemblyRedis-002 High CPU Alarm\"\n        tags                                  = {}\n      ~ threshold                             = 80 -> 90\n        # (21 unchanged attributes hidden)\n    }\n\n  # module.mflt-coolify-redis.aws_cloudwatch_metric_alarm.high-cpu[0] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n        id                                    = \"ProductionCoolifyRedis-001 High CPU Alarm\"\n        tags                                  = {}\n      ~ threshold                             = 80 -> 90\n        # (21 unchanged attributes hidden)\n    }\n\n  # module.mflt-coolify-redis.aws_cloudwatch_metric_alarm.high-cpu[1] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n        id                                    = \"ProductionCoolifyRedis-002 High CPU Alarm\"\n        tags                                  = {}\n      ~ threshold                             = 80 -> 90\n        # (21 unchanged attributes hidden)\n    }\n\n  # module.mflt-diagnostic-logs-redis.aws_cloudwatch_metric_alarm.high-cpu[0] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n        id                                    = \"ProductionDiagnosticLogsRedis-001 High CPU Alarm\"\n        tags                                  = {}\n      ~ threshold                             = 80 -> 90\n        # (21 unchanged attributes hidden)\n    }\n\n  # module.mflt-diagnostic-logs-redis.aws_cloudwatch_metric_alarm.high-cpu[1] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n        id                                    = \"ProductionDiagnosticLogsRedis-002 High CPU Alarm\"\n        tags                                  = {}\n      ~ threshold                             = 80 -> 90\n        # (21 unchanged attributes hidden)\n    }\n\n  # module.mflt-rate-limit-redis.aws_cloudwatch_metric_alarm.high-cpu[0] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n        id                                    = \"ProductionRateLimitRedis-001 High CPU Alarm\"\n        tags                                  = {}\n      ~ threshold                             = 80 -> 90\n        # (21 unchanged attributes hidden)\n    }\n\n  # module.mflt-rate-limit-redis.aws_cloudwatch_metric_alarm.high-cpu[1] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n        id                                    = \"ProductionRateLimitRedis-002 High CPU Alarm\"\n        tags                                  = {}\n      ~ threshold                             = 80 -> 90\n        # (21 unchanged attributes hidden)\n    }\n\n  # module.mflt-redis-prod-primary.aws_cloudwatch_metric_alarm.high-cpu[0] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n      - datapoints_to_alarm                   = 2 -> null\n        id                                    = \"ProductionRedisPrimary-001 High CPU Alarm\"\n        tags                                  = {}\n        # (21 unchanged attributes hidden)\n    }\n\n  # module.mflt-redis-prod-primary.aws_cloudwatch_metric_alarm.high-cpu[1] will be updated in-place\n  ~ resource \"aws_cloudwatch_metric_alarm\" \"high-cpu\" {\n      - datapoints_to_alarm                   = 2 -> null\n        id                                    = \"ProductionRedisPrimary-002 High CPU Alarm\"\n        tags                                  = {}\n        # (21 unchanged attributes hidden)\n    }\n\nPlan: 0 to add, 10 to change, 0 to destroy.\n\n",
+			expectedContains: []string{
+				"module.mflt-chunks-ingress-reassembly-redis.aws_cloudwatch_metric_alarm.high-cpu[0] will be updated in-place",
+				"...",
+				"Plan: 0 to add, 10 to change, 0 to destroy.",
+			},
+			expectedNotContains: []string{
+				"Terraform will perform the following actions:",
+				"module.mflt-redis-prod-primary.aws_cloudwatch_metric_alarm.high-cpu[1] will be updated in-place",
+			},
+		},
+	}
+
+	formatter := NewMemfaultSlackFormatter()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatter.extractDriftDetails(tt.terraformOutput)
+
+			for _, expected := range tt.expectedContains {
+				if !strings.Contains(result, expected) {
+					t.Errorf("extractDriftDetails() should contain '%s', but got: %s", expected, result)
+				}
+			}
+
+			for _, notExpected := range tt.expectedNotContains {
+				if strings.Contains(result, notExpected) {
+					t.Errorf("extractDriftDetails() should not contain '%s', but got: %s", notExpected, result)
+				}
+			}
+		})
+	}
+}

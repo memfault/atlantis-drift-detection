@@ -3,10 +3,11 @@ package atlantis
 import (
 	"context"
 	"encoding/json"
-	"github.com/cresta/atlantis-drift-detection/internal/testhelper"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
+
+	"github.com/cresta/atlantis-drift-detection/internal/testhelper"
+	"github.com/stretchr/testify/require"
 )
 
 func makeTestClient(t *testing.T) *Client {

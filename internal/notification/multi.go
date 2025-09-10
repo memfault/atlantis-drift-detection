@@ -33,9 +33,9 @@ func (m *Multi) MissingWorkspaceInRemote(ctx context.Context, dir string, worksp
 	return nil
 }
 
-func (m *Multi) PlanDrift(ctx context.Context, dir string, workspace string) error {
+func (m *Multi) PlanDrift(ctx context.Context, dir string, workspace string, terraformOutput ...string) error {
 	for _, n := range m.Notifications {
-		if err := n.PlanDrift(ctx, dir, workspace); err != nil {
+		if err := n.PlanDrift(ctx, dir, workspace, terraformOutput...); err != nil {
 			return err
 		}
 	}
