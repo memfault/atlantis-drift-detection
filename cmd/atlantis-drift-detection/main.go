@@ -18,6 +18,8 @@ import (
 	"github.com/robfig/cron/v3"
 
 	// Empty import allows pinning to version atlantis uses
+	_ "time/tzdata" // Embed timezone data for containerized environments
+
 	"github.com/joeshaw/envdecode"
 	_ "github.com/nlopes/slack"
 	"go.uber.org/zap"
