@@ -24,20 +24,21 @@ import (
 )
 
 type config struct {
-	Repo               string        `env:"REPO,required"`
-	AtlantisHostname   string        `env:"ATLANTIS_HOST,required"`
-	AtlantisToken      string        `env:"ATLANTIS_TOKEN,required"`
-	AtlantisConfigPath string        `env:"ATLANTIS_CONFIG_PATH,default=atlantis.yaml"`
-	DirectoryWhitelist []string      `env:"DIRECTORY_WHITELIST"`
-	SlackWebhookURL    string        `env:"SLACK_WEBHOOK_URL"`
-	SkipWorkspaceCheck bool          `env:"SKIP_WORKSPACE_CHECK"`
-	ParallelRuns       int           `env:"PARALLEL_RUNS"`
-	DynamodbTable      string        `env:"DYNAMODB_TABLE"`
-	CacheValidDuration time.Duration `env:"CACHE_VALID_DURATION,default=24h"`
-	WorkflowOwner      string        `env:"WORKFLOW_OWNER"`
-	WorkflowRepo       string        `env:"WORKFLOW_REPO"`
-	WorkflowId         string        `env:"WORKFLOW_ID"`
-	WorkflowRef        string        `env:"WORKFLOW_REF"`
+	Repo                        string        `env:"REPO,required"`
+	AtlantisHostname            string        `env:"ATLANTIS_HOST,required"`
+	AtlantisToken               string        `env:"ATLANTIS_TOKEN,required"`
+	AtlantisConfigPath          string        `env:"ATLANTIS_CONFIG_PATH,default=atlantis.yaml"`
+	DirectoryWhitelist          []string      `env:"DIRECTORY_WHITELIST"`
+	SlackWebhookURL             string        `env:"SLACK_WEBHOOK_URL"`
+	SkipWorkspaceCheck          bool          `env:"SKIP_WORKSPACE_CHECK"`
+	ParallelRuns                int           `env:"PARALLEL_RUNS"`
+	DynamodbTable               string        `env:"DYNAMODB_TABLE"`
+	CacheValidDuration          time.Duration `env:"CACHE_VALID_DURATION,default=24h"`
+	WorkflowOwner               string        `env:"WORKFLOW_OWNER"`
+	WorkflowRepo                string        `env:"WORKFLOW_REPO"`
+	WorkflowId                  string        `env:"WORKFLOW_ID"`
+	WorkflowRef                 string        `env:"WORKFLOW_REF"`
+	RunOnceImmediatelyOnStartup bool          `env:"RUN_ONCE_IMMEDIATELY_ON_STARTUP"`
 }
 
 func loadEnvIfExists() error {
@@ -158,6 +159,15 @@ func main() {
 		Terraform:          &tf,
 		Notification:       notif,
 		SkipWorkspaceCheck: cfg.SkipWorkspaceCheck,
+	}
+
+	if cfg.RunOnceImmediatelyOnStartup {
+		logger.Info("Running drift detection on startup")
+		if err := d.Drift(ctx); err != nil {
+			logger.Error("Startup drift detection failed", zap.Error(err))
+		} else {
+			logger.Info("Startup drift detection completed successfully")
+		}
 	}
 
 	logger.Info("Starting drift detection scheduler - will run at 9am ET daily")
