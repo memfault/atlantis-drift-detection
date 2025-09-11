@@ -15,6 +15,7 @@ import (
 	"github.com/cresta/gogit"
 	"github.com/cresta/gogithub"
 	"github.com/joho/godotenv"
+	"github.com/robfig/cron/v3"
 
 	// Empty import allows pinning to version atlantis uses
 	"github.com/joeshaw/envdecode"
@@ -158,7 +159,31 @@ func main() {
 		Notification:       notif,
 		SkipWorkspaceCheck: cfg.SkipWorkspaceCheck,
 	}
-	if err := d.Drift(ctx); err != nil {
-		logger.Panic("failed to drift", zap.Error(err))
+
+	logger.Info("Starting drift detection scheduler - will run at 9am ET daily")
+
+	et, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		logger.Error("Failed to load Eastern Time zone, using local time", zap.Error(err))
+		et = time.Local
 	}
+
+	c := cron.New(cron.WithLocation(et))
+
+	_, err = c.AddFunc("0 9 * * *", func() {
+		logger.Info("Running scheduled drift detection")
+		if err := d.Drift(ctx); err != nil {
+			logger.Error("Drift detection failed", zap.Error(err))
+		} else {
+			logger.Info("Drift detection completed successfully")
+		}
+	})
+	if err != nil {
+		logger.Panic("Failed to schedule drift detection", zap.Error(err))
+	}
+
+	c.Start()
+	logger.Info("Cron scheduler started")
+
+	select {}
 }
