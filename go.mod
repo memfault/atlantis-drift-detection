@@ -2,6 +2,8 @@ module github.com/cresta/atlantis-drift-detection
 
 go 1.24.4
 
+toolchain go1.24.7
+
 require (
 	github.com/aws/aws-sdk-go-v2/config v1.31.4
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.7
@@ -12,6 +14,7 @@ require (
 	github.com/joeshaw/envdecode v0.0.0-20200121155833-099f1fc765bd
 	github.com/joho/godotenv v1.5.1
 	github.com/nlopes/slack v0.6.0
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/runatlantis/atlantis v0.35.1
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.0
