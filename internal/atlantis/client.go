@@ -30,6 +30,10 @@ type PlanSummaryRequest struct {
 }
 
 type PlanResult struct {
+	// Ref is the git ref (typically a commit SHA) we asked Atlantis to plan
+	// against. Atlantis does not echo back the SHA it actually checked out,
+	// so this is the requested ref, not a confirmation.
+	Ref       string
 	Summaries []PlanSummary
 }
 
@@ -153,7 +157,7 @@ func (c *Client) PlanSummary(ctx context.Context, req *PlanSummaryRequest) (*Pla
 	if bodyResult.Failure != "" {
 		return nil, fmt.Errorf("failure making plan request: %s", bodyResult.Failure)
 	}
-	var ret PlanResult
+	ret := PlanResult{Ref: req.Ref}
 	for _, result := range bodyResult.ProjectResults {
 		if result.Failure != "" {
 			if strings.Contains(result.Failure, "This project is currently locked ") {
