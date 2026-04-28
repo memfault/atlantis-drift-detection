@@ -22,6 +22,7 @@ type Drifter struct {
 	Logger             *zap.Logger
 	Repo               string
 	AtlantisConfigPath string
+	GitRef             string
 	Cloner             *gogit.Cloner
 	GithubClient       gogithub.GitHub
 	Terraform          *terraform.Client
@@ -124,6 +125,21 @@ func (d *Drifter) drainAndExecute(ctx context.Context, toRun []errFunc) error {
 }
 
 func (d *Drifter) FindDriftedWorkspaces(ctx context.Context, ws atlantis.DirectoriesWithWorkspaces) error {
+	// Fetch the latest commit SHA for the configured git ref once at the start
+	gitRef := d.GitRef
+	if gitRef == "" {
+		gitRef = "master"
+	}
+	d.Logger.Info("Fetching latest commit SHA", zap.String("repo", d.Repo), zap.String("ref", gitRef))
+	latestSHA, err := atlantisgithub.GetLatestCommitSHA(ctx, d.GithubClient, d.Repo, gitRef)
+	if err != nil {
+		d.Logger.Warn("Failed to fetch latest commit SHA, falling back to branch name", zap.String("ref", gitRef), zap.Error(err))
+		// Fall back to using branch name if SHA fetch fails
+		latestSHA = gitRef
+	} else {
+		d.Logger.Info("Fetched latest commit SHA", zap.String("repo", d.Repo), zap.String("ref", gitRef), zap.String("sha", latestSHA))
+	}
+
 	runningFunc := func(dir string) errFunc {
 		return func(ctx context.Context) error {
 			if d.shouldSkipDirectory(dir) {
@@ -154,7 +170,7 @@ func (d *Drifter) FindDriftedWorkspaces(ctx context.Context, ws atlantis.Directo
 
 				pr, err := d.AtlantisClient.PlanSummary(ctx, &atlantis.PlanSummaryRequest{
 					Repo:      d.Repo,
-					Ref:       "master",
+					Ref:       latestSHA,
 					Type:      "Github",
 					Dir:       dir,
 					Workspace: workspace,
@@ -167,6 +183,13 @@ func (d *Drifter) FindDriftedWorkspaces(ctx context.Context, ws atlantis.Directo
 					}
 					return fmt.Errorf("failed to get plan summary for (%s#%s): %w", dir, workspace, err)
 				}
+				d.Logger.Info("Plan complete",
+					zap.String("dir", dir),
+					zap.String("workspace", workspace),
+					zap.String("requested_sha", pr.Ref),
+					zap.Bool("has_changes", pr.HasChanges()),
+					zap.Bool("is_locked", pr.IsLocked()),
+				)
 				if err := d.ResultCache.StoreDriftCheckResult(ctx, cacheKey, &processedcache.DriftCheckValue{
 					When:  time.Now(),
 					Error: "",
