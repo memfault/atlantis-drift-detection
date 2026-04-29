@@ -40,7 +40,6 @@ type config struct {
 	WorkflowRepo                string        `env:"WORKFLOW_REPO"`
 	WorkflowId                  string        `env:"WORKFLOW_ID"`
 	WorkflowRef                 string        `env:"WORKFLOW_REF"`
-	GitRef                      string        `env:"GIT_REF,default=master"`
 	RunOnceImmediatelyOnStartup bool          `env:"RUN_ONCE_IMMEDIATELY_ON_STARTUP"`
 }
 
@@ -148,7 +147,6 @@ func main() {
 		Logger:             logger.With(zap.String("drifter", "true")),
 		Repo:               cfg.Repo,
 		AtlantisConfigPath: cfg.AtlantisConfigPath,
-		GitRef:             cfg.GitRef,
 		AtlantisClient: &atlantis.Client{
 			AtlantisHostname: cfg.AtlantisHostname,
 			Token:            cfg.AtlantisToken,
