@@ -3,7 +3,9 @@ package atlantis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/cresta/atlantis-drift-detection/internal/testhelper"
@@ -63,4 +65,17 @@ func TestClient_PlanSummaryChanges(t *testing.T) {
 	ok, err := c.PlanSummary(context.Background(), req)
 	require.NoError(t, err)
 	require.True(t, ok.HasChanges())
+}
+
+func TestClient_PlanSummaryFailedPlan(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"Error":null,"Failure":"","ProjectResults":[{"Error":{},"Failure":"","PlanSuccess":null}]}`))
+	}))
+	defer srv.Close()
+	c := Client{AtlantisHostname: srv.URL, HTTPClient: srv.Client()}
+	_, err := c.PlanSummary(context.Background(), &PlanSummaryRequest{})
+	var tmp TemporaryError
+	require.True(t, errors.As(err, &tmp))
+	require.True(t, tmp.Temporary())
 }
