@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/cresta/atlantis-drift-detection/internal/atlantis"
@@ -58,10 +59,17 @@ type zapGogitLogger struct {
 	logger *zap.Logger
 }
 
+var urlCredentials = regexp.MustCompile(`://[^/@\s]+@`)
+
+// redactCredentials masks credentials embedded in URLs.
+func redactCredentials(s string) string {
+	return urlCredentials.ReplaceAllString(s, "://REDACTED@")
+}
+
 func (z *zapGogitLogger) build(strings map[string]string, ints map[string]int64) *zap.Logger {
 	l := z.logger
 	for k, v := range strings {
-		l = l.With(zap.String(k, v))
+		l = l.With(zap.String(k, redactCredentials(v)))
 	}
 	for k, v := range ints {
 		l = l.With(zap.Int64(k, v))
@@ -70,11 +78,11 @@ func (z *zapGogitLogger) build(strings map[string]string, ints map[string]int64)
 }
 
 func (z *zapGogitLogger) Debug(_ context.Context, msg string, strings map[string]string, ints map[string]int64) {
-	z.build(strings, ints).Debug(msg)
+	z.build(strings, ints).Debug(redactCredentials(msg))
 }
 
 func (z *zapGogitLogger) Info(_ context.Context, msg string, strings map[string]string, ints map[string]int64) {
-	z.build(strings, ints).Info(msg)
+	z.build(strings, ints).Info(redactCredentials(msg))
 }
 
 var _ gogit.Logger = (*zapGogitLogger)(nil)
