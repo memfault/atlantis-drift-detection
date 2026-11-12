@@ -162,7 +162,7 @@ func (d *Drifter) FindDriftedWorkspaces(ctx context.Context, ws atlantis.Directo
 				if err != nil {
 					var tmp atlantis.TemporaryError
 					if errors.As(err, &tmp) && tmp.Temporary() {
-						d.Logger.Warn("Temporary error.  Will try again later.", zap.Error(err))
+						d.Logger.Warn("Plan failed, skipping drift check", zap.String("dir", dir), zap.String("workspace", workspace), zap.Error(err))
 						continue
 					}
 					return fmt.Errorf("failed to get plan summary for (%s#%s): %w", dir, workspace, err)
